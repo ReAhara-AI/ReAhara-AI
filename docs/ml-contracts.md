@@ -228,3 +228,32 @@ For each additional model, document:
 - Evaluation metrics and limitations
 - Artifact location and deployment requirements
 - Inference function or API interface
+
+## Feature Ablation Experiment
+
+An ablation experiment compared the full demand-forecasting model against a
+model without `is_festival`, `promotion_flag`, `homepage_featured`, and
+`discount_pct`.
+
+Both models used the same HistGradientBoostingRegressor configuration and
+three chronological, non-overlapping 28-day validation windows. Each model
+was trained only on dates before its validation window.
+
+| Validation window | Full model WMAPE | Ablated model WMAPE |
+|---|---:|---:|
+| 2026-01-07 to 2026-02-03 | 6.46% | 11.00% |
+| 2026-02-04 to 2026-03-03 | 5.83% | 8.85% |
+| 2026-03-04 to 2026-03-31 | 5.90% | 10.21% |
+| Combined | 6.06% | 10.02% |
+
+The full model outperformed the ablated model in all three validation
+windows. Its combined WMAPE was approximately 39.5% lower.
+
+The experiment supports retaining these four features in the current
+synthetic-data prototype. Because the features were removed together, the
+experiment does not measure the individual contribution of each feature.
+
+**Limitations:** The dataset is synthetic. The results do not establish
+real-world forecasting accuracy or actual food-waste reduction. Evaluation
+uses precomputed historical features and is not a recursive multi-day
+forecast.
