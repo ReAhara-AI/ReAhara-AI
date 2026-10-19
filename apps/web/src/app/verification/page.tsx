@@ -40,7 +40,7 @@ export default function VerificationPage() {
     }
   }, [records, ready]);
 
-  function updateStatus(id: number, status: "Approved" | "Rejected") {
+  function updateStatus(id: number, status: "Pending" | "Approved" | "Rejected") {
     setRecords((current) =>
       current.map((record) =>
         record.id === id ? { ...record, status } : record
