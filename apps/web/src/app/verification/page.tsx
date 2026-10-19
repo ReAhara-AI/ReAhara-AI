@@ -27,7 +27,20 @@ export default function VerificationPage() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      setRecords(saved ? JSON.parse(saved) as FoodRecord[] : initialRecords);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<FoodRecord>[];
+        const merged = initialRecords.map((defaultRecord) => {
+          const existing = parsed.find((record) => record.id === defaultRecord.id);
+          return {
+            ...defaultRecord,
+            ...existing,
+            location: existing?.location || defaultRecord.location,
+          };
+        });
+        setRecords(merged);
+      } else {
+        setRecords(initialRecords);
+      }
     } catch {
       setRecords(initialRecords);
     }
@@ -97,7 +110,7 @@ export default function VerificationPage() {
                   {records.map((record) => (
                     <tr key={record.id} className="border-t border-slate-800">
                       <td className="p-4 font-medium">{record.name}</td>
-                      <td className="p-4">{record.quantity} kg</td>
+                      <td className="p-4">{String(record.quantity).replace(/\s*kg$/i, "")} kg</td>
                       <td className="p-4">{record.location}</td>
                       <td className="p-4">
                         <span className={
