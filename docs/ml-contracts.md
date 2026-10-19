@@ -257,3 +257,33 @@ experiment does not measure the individual contribution of each feature.
 real-world forecasting accuracy or actual food-waste reduction. Evaluation
 uses precomputed historical features and is not a recursive multi-day
 forecast.
+
+## Festival-Only Ablation Experiment
+
+A separate experiment removed only `is_festival` while retaining the
+other model features. It used the same HistGradientBoostingRegressor
+configuration and the same three chronological, non-overlapping
+28-day validation windows.
+
+| Validation window | Full model WMAPE | Without festival WMAPE |
+|---|---:|---:|
+| 2026-01-07 to 2026-02-03 | 6.46% | 8.57% |
+| 2026-02-04 to 2026-03-03 | 5.83% | 6.16% |
+| 2026-03-04 to 2026-03-31 | 5.90% | 7.52% |
+| Combined | 6.06% | 7.41% |
+
+The full model had lower WMAPE in all three validation windows.
+Combined WMAPE was approximately 18.3% lower for the full model than
+for the model without `is_festival`.
+
+This indicates that the festival flag provides predictive information
+within this synthetic dataset and evaluation protocol. It does not
+establish that the feature will improve forecasts on real kitchen data.
+
+**Limitations:** Festival-marked observations show unusually high demand
+spike rates in this synthetic dataset. The data-generation process
+could not be located in the repository, so the origin of this
+relationship has not been verified. Feature availability before
+production planning must also be confirmed to rule out leakage.
+Real kitchen data and independent validation are required before
+production use.
