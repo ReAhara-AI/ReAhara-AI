@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type InventoryItem = {
   id: number;
@@ -12,240 +12,227 @@ type InventoryItem = {
   location: string;
 };
 
-const initialItems: InventoryItem[] = [
-  { id: 1, name: "Rice", quantity: 45, unit: "kg", minimum: 20, location: "Central Kitchen" },
-  { id: 2, name: "Cooking Oil", quantity: 8, unit: "litres", minimum: 10, location: "Central Kitchen" },
-  { id: 3, name: "Vegetables", quantity: 15, unit: "kg", minimum: 10, location: "North Campus" },
-  { id: 4, name: "Wheat Flour", quantity: 30, unit: "kg", minimum: 12, location: "Cafeteria B" },
-];
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function InventoryPage() {
-  const [items, setItems] = useState<InventoryItem[]>(initialItems);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const [quantity, setQuantity] = useState("10");
   const [unit, setUnit] = useState("kg");
-  const [minimum, setMinimum] = useState("");
+  const [minimum, setMinimum] = useState("5");
   const [location, setLocation] = useState("Central Kitchen");
+  const [saving, setSaving] = useState(false);
 
-  const lowStock = items.filter((item) => item.quantity <= item.minimum).length;
-  const totalItems = items.length;
+  async function loadInventory() {
+    try {
+      setError("");
+      const response = await fetch(`${API_URL}/api/v1/inventory`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Could not load inventory.");
+      setItems(await response.json());
+    } catch {
+      setError("Unable to connect to inventory API. Check the backend.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  function addItem(event: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    void loadInventory();
+  }, []);
+
+  async function changeQuantity(id: number, change: number) {
+    try {
+      setError("");
+      const response = await fetch(
+        `${API_URL}/api/v1/inventory/${id}?change=${change}`,
+        { method: "PATCH" }
+      );
+      if (!response.ok) throw new Error();
+      const updated: InventoryItem = await response.json();
+      setItems((current) =>
+        current.map((item) => (item.id === id ? updated : item))
+      );
+    } catch {
+      setError("Could not update quantity. Please try again.");
+    }
+  }
+
+  async function addItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSaving(true);
+    setError("");
 
-    if (!name.trim() || quantity === "" || minimum === "") return;
+    try {
+      const response = await fetch(`${API_URL}/api/v1/inventory`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          quantity: Number(quantity),
+          unit,
+          minimum: Number(minimum),
+          location,
+        }),
+      });
 
-    const newItem: InventoryItem = {
-      id: Date.now(),
-      name: name.trim(),
-      quantity: Number(quantity),
-      unit,
-      minimum: Number(minimum),
-      location,
-    };
-
-    setItems((current) => [...current, newItem]);
-    setName("");
-    setQuantity("");
-    setMinimum("");
+      if (!response.ok) throw new Error();
+      const created: InventoryItem = await response.json();
+      setItems((current) => [...current, created]);
+      setName("");
+      setQuantity("10");
+    } catch {
+      setError("Could not add item. Check the API and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function updateQuantity(id: number, change: number) {
-    setItems((current) =>
-      current.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(0, item.quantity + change) }
-          : item
-      )
-    );
-  }
+  const lowStock = items.filter(
+    (item) => item.quantity < item.minimum
+  ).length;
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 md:flex">
-      <aside className="bg-emerald-950 p-6 text-white md:min-h-screen md:w-64">
-        <h1 className="text-2xl font-bold">ReAhara AI</h1>
-        <p className="mt-1 text-sm text-emerald-200">Food Intelligence Platform</p>
+    <main className="space-y-6 p-6">
+      <div>
+        <p className="text-sm text-gray-500">REAHARA AI / INVENTORY</p>
+        <h1 className="mt-2 text-3xl font-bold">Inventory Management</h1>
+        <p className="mt-2 text-gray-600">
+          Manage food supplies and monitor low stock.
+        </p>
+      </div>
 
-        <nav className="mt-8 space-y-2">
-          <a href="/" className="block rounded-lg px-3 py-3 hover:bg-emerald-900">
-            Overview
-          </a>
-          <a href="/demand" className="block rounded-lg px-3 py-3 hover:bg-emerald-900">
-            Demand & Production
-          </a>
-          <a href="/inventory" className="block rounded-lg bg-emerald-800 px-3 py-3 font-semibold">
-            Inventory
-          </a>
-          <a href="/verification" className="block rounded-lg px-3 py-3 hover:bg-emerald-900">
-            Food Verification
-          </a>
-        </nav>
-      </aside>
-
-      <section className="min-w-0 flex-1 p-5 md:p-8">
-        <header className="mb-8">
-          <p className="text-sm text-slate-500">Food operations / Inventory</p>
-          <h2 className="mt-1 text-3xl font-bold">Inventory Management</h2>
-          <p className="mt-2 text-slate-600">
-            Track ingredients, monitor stock and identify shortages before they cause waste.
+      <div className="grid gap-4 sm:grid-cols-3">
+        <section className="rounded-xl border p-5">
+          <p className="text-sm text-gray-500">Inventory items</p>
+          <p className="mt-2 text-3xl font-bold">{items.length}</p>
+        </section>
+        <section className="rounded-xl border p-5">
+          <p className="text-sm text-gray-500">Low-stock items</p>
+          <p className="mt-2 text-3xl font-bold">{lowStock}</p>
+        </section>
+        <section className="rounded-xl border p-5">
+          <p className="text-sm text-gray-500">API status</p>
+          <p className="mt-2 text-xl font-semibold">
+            {loading ? "Loading..." : error ? "Check connection" : "Connected"}
           </p>
-        </header>
+        </section>
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <article className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-slate-500">Inventory Items</p>
-            <p className="mt-2 text-3xl font-bold">{totalItems}</p>
-          </article>
+      {error && (
+        <p role="alert" className="rounded-lg border border-red-300 p-3 text-red-700">
+          {error}
+        </p>
+      )}
 
-          <article className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-slate-500">Low Stock Alerts</p>
-            <p className="mt-2 text-3xl font-bold text-amber-600">{lowStock}</p>
-          </article>
+      <form onSubmit={addItem} className="grid gap-3 rounded-xl border p-5 sm:grid-cols-2 lg:grid-cols-3">
+        <h2 className="text-xl font-semibold sm:col-span-2 lg:col-span-3">
+          Add inventory item
+        </h2>
+        <input
+          className="rounded-lg border p-3"
+          placeholder="Food item name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <input
+          className="rounded-lg border p-3"
+          type="number"
+          min="0"
+          step="any"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          required
+        />
+        <select className="rounded-lg border p-3" value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <option value="kg">kg</option>
+          <option value="litres">litres</option>
+          <option value="packets">packets</option>
+          <option value="pieces">pieces</option>
+        </select>
+        <input
+          className="rounded-lg border p-3"
+          placeholder="Minimum quantity"
+          type="number"
+          min="0"
+          step="any"
+          value={minimum}
+          onChange={(e) => setMinimum(e.target.value)}
+          required
+        />
+        <input
+          className="rounded-lg border p-3"
+          placeholder="Kitchen or location"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          required
+        />
+        <button disabled={saving} className="rounded-lg bg-green-700 p-3 font-semibold text-white disabled:opacity-50">
+          {saving ? "Adding..." : "Add item"}
+        </button>
+      </form>
 
-          <article className="rounded-xl border bg-white p-5">
-            <p className="text-sm text-slate-500">Stock Status</p>
-            <p className="mt-2 text-3xl font-bold text-emerald-700">
-              {totalItems - lowStock} OK
-            </p>
-          </article>
+      <section className="overflow-x-auto rounded-xl border">
+        <div className="flex items-center justify-between p-5">
+          <h2 className="text-xl font-semibold">Food inventory</h2>
+          <button onClick={() => { setLoading(true); void loadInventory(); }} className="rounded-lg border px-4 py-2">
+            Refresh
+          </button>
         </div>
 
-        <section className="mt-6 rounded-xl border bg-white p-6">
-          <h3 className="text-lg font-bold">Add Inventory Item</h3>
-
-          <form onSubmit={addItem} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <input
-              className="rounded-lg border p-3"
-              placeholder="Ingredient name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-
-            <input
-              className="rounded-lg border p-3"
-              type="number"
-              min="0"
-              step="any"
-              placeholder="Current quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              required
-            />
-
-            <select
-              className="rounded-lg border p-3"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-            >
-              <option value="kg">Kilograms (kg)</option>
-              <option value="litres">Litres</option>
-              <option value="pieces">Pieces</option>
-              <option value="packets">Packets</option>
-            </select>
-
-            <input
-              className="rounded-lg border p-3"
-              type="number"
-              min="0"
-              step="any"
-              placeholder="Minimum stock level"
-              value={minimum}
-              onChange={(e) => setMinimum(e.target.value)}
-              required
-            />
-
-            <select
-              className="rounded-lg border p-3"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            >
-              <option>Central Kitchen</option>
-              <option>North Campus</option>
-              <option>Cafeteria B</option>
-            </select>
-
-            <button
-              type="submit"
-              className="rounded-lg bg-emerald-800 px-5 py-3 font-semibold text-white hover:bg-emerald-900"
-            >
-              + Add Item
-            </button>
-          </form>
-        </section>
-
-        <section className="mt-6 rounded-xl border bg-white p-6">
-          <h3 className="mb-4 text-lg font-bold">Current Stock</h3>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="p-3">Ingredient</th>
-                  <th className="p-3">Quantity</th>
-                  <th className="p-3">Minimum</th>
-                  <th className="p-3">Location</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Update</th>
+        {loading ? (
+          <p className="p-5">Loading inventory...</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-100 text-gray-700">
+              <tr>
+                <th className="p-3">Food</th>
+                <th className="p-3">Quantity</th>
+                <th className="p-3">Minimum</th>
+                <th className="p-3">Location</th>
+                <th className="p-3">Stock status</th>
+                <th className="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="p-3 font-medium">{item.name}</td>
+                  <td className="p-3">{item.quantity} {item.unit}</td>
+                  <td className="p-3">{item.minimum} {item.unit}</td>
+                  <td className="p-3">{item.location}</td>
+                  <td className="p-3">
+                    {item.quantity < item.minimum ? (
+                      <span className="font-semibold text-red-600">Low stock</span>
+                    ) : (
+                      <span className="text-green-700">In stock</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button aria-label={`Decrease ${item.name}`} onClick={() => void changeQuantity(item.id, -1)} disabled={item.quantity <= 0} className="rounded border px-3 py-1 disabled:opacity-40">−</button>
+                      <button aria-label={`Increase ${item.name}`} onClick={() => void changeQuantity(item.id, 1)} className="rounded border px-3 py-1">+</button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {items.map((item) => {
-                  const isLow = item.quantity <= item.minimum;
-
-                  return (
-                    <tr key={item.id} className="border-t">
-                      <td className="p-3 font-semibold">{item.name}</td>
-                      <td className="p-3">{item.quantity} {item.unit}</td>
-                      <td className="p-3">{item.minimum} {item.unit}</td>
-                      <td className="p-3">{item.location}</td>
-                      <td className="p-3">
-                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                          isLow
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-emerald-100 text-emerald-800"
-                        }`}>
-                          {isLow ? "Low Stock" : "In Stock"}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="rounded border px-3 py-1 hover:bg-slate-100"
-                            aria-label={`Decrease ${item.name} quantity`}
-                          >
-                            −
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="rounded border px-3 py-1 hover:bg-slate-100"
-                            aria-label={`Increase ${item.name} quantity`}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-4 text-xs text-slate-500">
-            Demo data only. Changes are stored in page state and reset when the page reloads.
-            Backend database integration comes later.
-          </p>
-        </section>
-
-        <footer className="mt-8 text-xs text-slate-500">
-          ReAhara AI · Inventory and food waste prevention
-        </footer>
+              ))}
+              {!items.length && !loading && (
+                <tr><td colSpan={6} className="p-5 text-center">No inventory items found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </section>
+
+      <p className="text-sm text-gray-500">
+        Inventory is loaded from the backend API. The current backend uses
+        in-memory storage, so changes may reset when the backend restarts.
+      </p>
     </main>
   );
 }
