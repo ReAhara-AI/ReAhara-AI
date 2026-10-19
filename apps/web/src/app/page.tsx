@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getApiHealth } from "@/lib/api";
 
 type FoodItem = {
   id: number;
@@ -14,9 +15,9 @@ type FoodItem = {
 const STORAGE_KEY = "reahara-food-records";
 
 const modules = [
-  { title: "Overview", icon: "◫", description: "Monitor food operations and impact" },
-  { title: "Demand & Production", icon: "⌁", description: "Forecast meals and plan production" },
-  { title: "Inventory", icon: "▤", description: "Track ingredients and stock" },
+  { title: "Overview", icon: "⌂", description: "Monitor food waste prevention and redistribution" },
+  { title: "Demand & Production", icon: "▥", description: "Forecast demand and plan meal production" },
+  { title: "Inventory", icon: "▤", description: "Manage food stock and expiry dates" },
   { title: "Food Verification", icon: "✓", description: "Review surplus food quality" },
   { title: "IoT & Waste Monitoring", icon: "⌘", description: "Monitor storage and waste" },
   { title: "Redistribution", icon: "⇄", description: "Match recipients and plan delivery" },
@@ -38,12 +39,13 @@ const initialItems: FoodItem[] = [
 
 export default function Home() {
   const [surplus, setSurplus] = useState<FoodItem[]>(initialItems);
+  const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
 
   useEffect(() => {
     function loadRecords() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        setSurplus(saved ? JSON.parse(saved) as FoodItem[] : initialItems);
+        setSurplus(saved ? (JSON.parse(saved) as FoodItem[]) : initialItems);
       } catch {
         setSurplus(initialItems);
       }
@@ -59,8 +61,35 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    getApiHealth()
+      .then(() => {
+        if (active) setApiStatus("online");
+      })
+      .catch(() => {
+        if (active) setApiStatus("offline");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const approved = surplus.filter((item) => item.status === "Approved").length;
   const pending = surplus.filter((item) => item.status === "Pending").length;
+
+  const navigation = [
+    { title: "Overview", href: "/" },
+    { title: "Demand & Production", href: "/demand" },
+    { title: "Inventory", href: "/inventory" },
+    { title: "Food Verification", href: "/verification" },
+    { title: "IoT & Waste Monitoring", href: "/iot" },
+    { title: "Redistribution", href: "/redistribution" },
+    { title: "Routes & Deliveries", href: "/routes" },
+    { title: "Impact & ESG", href: "/impact" },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 md:flex">
@@ -68,99 +97,120 @@ export default function Home() {
         <div className="mb-8">
           <p className="text-2xl font-bold">ReAhara AI</p>
           <p className="mt-1 text-sm text-emerald-200">Food Intelligence Platform</p>
+
+          <p className="mt-3 text-xs">
+            Backend:{" "}
+            <span
+              className={
+                apiStatus === "online"
+                  ? "text-green-300"
+                  : apiStatus === "offline"
+                  ? "text-red-300"
+                  : "text-amber-300"
+              }
+            >
+              {apiStatus === "checking"
+                ? "Checking..."
+                : apiStatus === "online"
+                ? "Online"
+                : "Offline"}
+            </span>
+          </p>
         </div>
 
         <nav aria-label="Main navigation" className="space-y-2">
-          {modules.map((module, index) => (
-            <a
-              key={module.title}
-              href={
-  module.title === "Overview" ? "/" :
-  module.title === "Demand & Production" ? "/demand" :
-  module.title === "Inventory" ? "/inventory" :
-  module.title === "Food Verification" ? "/verification" :
-  module.title === "IoT & Waste Monitoring" ? "/iot" :
-  module.title === "Redistribution" ? "/redistribution" :
-  module.title === "Routes & Deliveries" ? "/routes" :
-  module.title === "Impact & ESG" ? "/impact" :
-  "/"
-}
-              className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${
-                index === 0
-                  ? "bg-emerald-800 font-semibold text-white"
-                  : "text-emerald-100 hover:bg-emerald-900"
-              }`}
-            >
-              <span aria-hidden="true" className="w-5 text-center">{module.icon}</span>
-              {module.title}
-            </a>
-          ))}
+          {modules.map((module, index) => {
+            const link = navigation.find((item) => item.title === module.title);
+
+            return (
+              <a
+                key={module.title}
+                href={link?.href ?? "/"}
+                className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${
+                  index === 0
+                    ? "bg-emerald-800 font-semibold text-white"
+                    : "text-emerald-100 hover:bg-emerald-900"
+                }`}
+              >
+                <span aria-hidden="true" className="w-5 text-center">
+                  {module.icon}
+                </span>
+                {module.title}
+              </a>
+            );
+          })}
         </nav>
 
-        <p className="mt-10 text-xs text-emerald-300">Predict · Prevent · Recover · Learn</p>
+        <p className="mt-10 text-xs text-emerald-300">
+          Predict · Prevent · Recover · Learn
+        </p>
       </aside>
 
       <section className="min-w-0 flex-1 p-5 md:p-8">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-500">Food operations / Overview</p>
-            <h1 className="mt-1 text-3xl font-bold">Operations Dashboard</h1>
-            <p className="mt-2 text-slate-600">
-              Prevent avoidable surplus and intelligently recover eligible food.
+            <p className="text-sm font-medium text-emerald-700">REAHARA AI / OVERVIEW</p>
+            <h1 className="mt-2 text-3xl font-bold">Food Intelligence Dashboard</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Prevent food waste. Recover surplus. Feed communities.
             </p>
           </div>
-          <span className="rounded-full border bg-white px-4 py-2 text-sm">Demo environment</span>
+
+          <span className="rounded-full bg-white px-4 py-2 text-sm shadow-sm">
+            System:{" "}
+            <span className={apiStatus === "online" ? "font-semibold text-emerald-700" : apiStatus === "offline" ? "font-semibold text-red-600" : "font-semibold text-amber-600"}>
+              {apiStatus === "checking" ? "Checking" : apiStatus === "online" ? "Connected" : "Disconnected"}
+            </span>
+          </span>
         </header>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.slice(0, 1).map((stat) => (
-            <article key={stat.title} className="rounded-xl border bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-slate-600">{stat.title}</p>
-              <p className="mt-4 text-3xl font-bold">{stat.value}</p>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {stats.map((stat) => (
+            <article key={stat.title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-500">{stat.title}</p>
+                <span className="text-2xl">{stat.icon}</span>
+              </div>
+              <p className="mt-3 text-3xl font-bold">{stat.value}</p>
               <p className="mt-2 text-xs text-slate-500">{stat.note}</p>
             </article>
           ))}
-
-          <article className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-600">Surplus Food Records</p>
-            <p className="mt-4 text-3xl font-bold">{surplus.length}</p>
-            <p className="mt-2 text-xs text-slate-500">Stored in this browser</p>
-          </article>
-
-          <article className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-600">Pending Review</p>
-            <p className="mt-4 text-3xl font-bold">{pending}</p>
-            <p className="mt-2 text-xs text-slate-500">Awaiting verification</p>
-          </article>
-
-          <article className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-600">Approved Food Records</p>
-            <p className="mt-4 text-3xl font-bold">{approved}</p>
-            <p className="mt-2 text-xs text-slate-500">Approved in verification</p>
-          </article>
-        </div>
-
-        <section className="mt-6 rounded-xl border bg-white p-6">
-          <h2 className="text-lg font-bold">ReAhara closed-loop workflow</h2>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-            {["Predict", "Prevent", "Detect", "Verify", "Match", "Route", "Measure", "Learn"].map((step, index) => (
-              <div key={step} className="rounded-lg bg-emerald-50 p-3 text-center">
-                <span className="text-xs text-emerald-700">{index + 1}</span>
-                <p className="mt-1 text-sm font-semibold text-emerald-950">{step}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
-        <section className="mt-6 rounded-xl border bg-white p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold">Surplus Food Inventory</h2>
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Surplus food records</p>
+            <p className="mt-2 text-3xl font-bold">{surplus.length}</p>
+            <p className="mt-2 text-xs text-slate-500">Records currently in browser storage</p>
+          </article>
+
+          <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Awaiting review</p>
+            <p className="mt-2 text-3xl font-bold text-amber-600">{pending}</p>
+            <p className="mt-2 text-xs text-slate-500">Pending verification</p>
+          </article>
+
+          <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Approved records</p>
+            <p className="mt-2 text-3xl font-bold text-emerald-700">{approved}</p>
+            <p className="mt-2 text-xs text-slate-500">Approved for redistribution</p>
+          </article>
+        </section>
+
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Surplus Food Overview</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Latest surplus records and their verification status
+              </p>
+            </div>
             <a href="/verification" className="text-sm font-semibold text-emerald-800 hover:underline">
-              Review food →
+              Manage records →
             </a>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
@@ -177,11 +227,15 @@ export default function Home() {
                     <td className="p-3">{item.quantity}</td>
                     <td className="p-3">{item.source}</td>
                     <td className="p-3">
-                      <span className={`rounded-full px-2 py-1 text-xs ${
-                        item.status === "Approved" ? "bg-emerald-100 text-emerald-800" :
-                        item.status === "Rejected" ? "bg-red-100 text-red-800" :
-                        "bg-amber-100 text-amber-800"
-                      }`}>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          item.status === "Approved"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : item.status === "Rejected"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
                         {item.status}
                       </span>
                     </td>
@@ -190,28 +244,35 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+
           <p className="mt-3 text-xs text-slate-500">
             Demo data saved in browser storage, not a shared database.
           </p>
         </section>
 
         <section className="mt-6 grid gap-4 lg:grid-cols-2">
-          {modules.slice(1).filter((module) => !["Inventory"].includes(module.title)).map((module) => (
-            <article key={module.title} className="rounded-xl border bg-white p-5">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{module.icon}</span>
-                <h2 className="font-semibold">{module.title}</h2>
-              </div>
-              <p className="mt-2 text-sm text-slate-600">{module.description}</p>
-              {module.title === "Food Verification" ? (
-                <a href="/verification" className="mt-4 inline-block text-sm font-semibold text-emerald-800 hover:underline">
-                  Open verification page →
-                </a>
-              ) : (
-                <p className="mt-4 text-xs text-slate-400">Feature screen pending integration.</p>
-              )}
-            </article>
-          ))}
+          {modules
+            .slice(1)
+            .filter((module) => module.title !== "Inventory")
+            .map((module) => {
+              const link = navigation.find((item) => item.title === module.title);
+
+              return (
+                <article key={module.title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{module.icon}</span>
+                    <h2 className="font-semibold">{module.title}</h2>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">{module.description}</p>
+                  <a
+                    href={link?.href ?? "/"}
+                    className="mt-4 inline-block text-sm font-semibold text-emerald-800 hover:underline"
+                  >
+                    Open module →
+                  </a>
+                </article>
+              );
+            })}
         </section>
 
         <footer className="mt-8 text-xs text-slate-500">
@@ -221,3 +282,4 @@ export default function Home() {
     </main>
   );
 }
+
