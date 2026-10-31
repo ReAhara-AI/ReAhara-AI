@@ -119,7 +119,7 @@ def _validate_payload(payload):
     return row
 
 
-def predict_demand(payload, model_path=DEFAULT_MODEL_PATH):
+def predict_demand(payload, model_path=DEFAULT_MODEL_PATH, artifact=None):
     """
     Predict one-step demand from a feature payload.
 
@@ -127,7 +127,8 @@ def predict_demand(payload, model_path=DEFAULT_MODEL_PATH):
     prediction time. This function does not forecast future lag values.
     """
     row = _validate_payload(payload)
-    artifact = load_model(model_path)
+    if artifact is None:
+        artifact = load_model(model_path)
 
     model_input = pd.DataFrame([row])
 
